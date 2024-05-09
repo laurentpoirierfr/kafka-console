@@ -4,8 +4,12 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/laurentpoirierfr/kafka-console/pkg/helpers"
 	"github.com/spf13/cobra"
 )
 
@@ -20,21 +24,56 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		fmt.Println("produce called")
+		produce()
 	},
 }
 
+var (
+	topic_name      *string
+	bootstrap_serve *string
+
+	headers_file *string
+	payload_file *string
+)
+
 func init() {
 	rootCmd.AddCommand(produceCmd)
+	topic_name = produceCmd.PersistentFlags().StringP("topic", "t", "topic-name", "Topic name")
+	bootstrap_serve = produceCmd.PersistentFlags().StringP("bootstrap-server", "b", "localhost:9092", "Bootstrap Server")
+	headers_file = produceCmd.PersistentFlags().StringP("headers-file", "d", "json/headers.json", "Headers json file")
+	payload_file = produceCmd.PersistentFlags().StringP("payload_file", "p", "json/payload.json", "Payload json file")
+}
 
-	// Here you will define your flags and configuration settings.
+func produce() {
+	fmt.Println("produce called")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// produceCmd.PersistentFlags().String("foo", "", "A help for foo")
+	value, err := os.ReadFile(*payload_file)
+	check(err)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// produceCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	headers, err := os.ReadFile(*headers_file)
+	check(err)
+
+	var mapHeaders map[string]string
+	err = json.Unmarshal(headers, &mapHeaders)
+	check(err)
+
+	p, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": *bootstrap_serve,
+	})
+	check(err)
+	defer p.Close()
+
+	err = p.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: topic_name, Partition: kafka.PartitionAny},
+		Value:          value,
+		Headers:        helpers.MapToKafkaHeaders(mapHeaders),
+	}, nil)
+
+	check(err)
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
