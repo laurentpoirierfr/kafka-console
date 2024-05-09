@@ -8,9 +8,9 @@ ENV GOARCH=amd64
 
 WORKDIR /go/src
 
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
+# COPY go.mod .
+# COPY go.sum .
+# RUN go mod download
 
 RUN apk -U add ca-certificates
 RUN apk update && apk upgrade && apk add pkgconf git bash build-base sudo
